@@ -1,0 +1,232 @@
+## Practical Implementation with Python
+
+*Problem Statement*
+
+A Smart City logistics company needs to determine the optimal distribution strategy between two warehouses (Warehouse A and Warehouse B) to minimize total operational costs. The company must decide how many units to ship from each warehouse while considering capacity constraints and transportation costs.
+
+### Problem Data:
+- Warehouse A: Transportation cost = $40 per unit
+- Warehouse B: Transportation cost = $30 per unit
+- Constraint 1: Minimum demand exeeds 60
+- Constraint 2: Warehouse A has a maximum capacity of 50
+- Constraint 3: Warehouse B has a maximum capacity of 40
+- Constraint 4: Total units from both warehouses cannot exceed 200 (2 units from A + 3 unit from B combination)
+- Both warehouses have non-negative shipment quantities
+
+### Mathematical Formulation
+> *Decision Variables*
+
+Let: - $ x_1 $: Number of units to ship from Warehouse A - $ x_2 $: Number of units to ship from Warehouse B
+
+> *Objective Function*
+
+Minimize the total transportation cost:
+
+\text{Minimize } Z = 40x_1 + 30x_2
+
+### Complete Linear Programming Model
+
+\begin{aligned}
+\text{Minimize } & Z = 40x_1 + 30x_2 \\
+\text{Subject to } & x_1+x_2\geq 60\\
+&x_1\leq 50\\
+&x_2\leq 40\\
+&2x_1 + 3x_2 \leq 200 \\
+& x_1 \geq 0 \\
+& x_2 \geq 0
+\end{aligned}
+
+> Using PuLP for LP Problems
+
+*PuLP* provides a high-level interface for formulating and solving optimization problems:
+
+```{python}
+import pulp
+
+# Create optimization problem
+model = pulp.LpProblem("Warehouse_Location", pulp.LpMinimize)
+
+# Define decision variables
+x1 = pulp.LpVariable('Warehouse_A', lowBound=0, cat='Continuous')
+x2 = pulp.LpVariable('Warehouse_B', lowBound=0, cat='Continuous')
+
+# Define objective function
+model += 40*x1 + 30*x2, "Total_Cost"
+
+# Add realistic constraints
+model += x1 + x2 >= 60, "Minimum_Demand"
+model += x1 <= 50, "Warehouse_A_Capacity"  # Warehouse A max capacity
+model += x2 <= 40, "Warehouse_B_Capacity"  # Warehouse B max capacity
+model += 2*x1 + 3*x2 <= 200, "Budget_Constraint"  # Combined resource constraint
+
+# Solve the problem
+model.solve()
+
+# Print results
+print(f"Status: {pulp.LpStatus[model.status]}")
+print(f"Optimal Cost: ${pulp.value(model.objective):.2f}")
+print(f"Warehouse A: {x1.varValue} units")
+print(f"Warehouse B: {x2.varValue} units")
+```
+
+## Linear Programming Problems Collection
+### Problem 1
+A manufacturing company produces two products (A and B) using three machines (M1, M2, M3). The profit per unit is $50 for product A and $40 for product B. Machine time requirements and availability are given below. Determine the optimal production quantities to maximize profit.
+
+
+| Machine | Product A (hrs/unit) | Product B (hrs/unit) | Available Hours |
+|---------|----------------------|----------------------|-----------------|
+| M1      | 2                    | 1                    | 100             |
+| M2      | 1                    | 2                    | 80              |
+| M3      | 1                    | 1                    | 60              |
+
+
+### Mathematical Formulation
+
+### Decision Variables:
+
+- x_1 : Units of Product A to produce
+- x_2 : Units of Product B to produce
+
+### Objective Function:
+
+\text{Maximize } Z = 50x_1 + 40x_2
+
+### Constraints:
+
+\begin{aligned}
+2x_1 + x_2 &\leq 100 \quad \text{(Machine M1)} \\
+x_1 + 2x_2 &\leq 80 \quad \text{(Machine M2)} \\
+x_1 + x_2 &\leq 60 \quad \text{(Machine M3)} \\
+x_1, x_2 &\geq 0
+\end{aligned} 
+
+> Python Solution:
+
+```{python}
+import pulp
+
+# Create the optimization problem
+model = pulp.LpProblem("Product_Mix_Optimization", pulp.LpMaximize)
+
+# Decision variables
+x1 = pulp.LpVariable('Product_A', lowBound=0, cat='Continuous')
+x2 = pulp.LpVariable('Product_B', lowBound=0, cat='Continuous')
+
+# Objective function
+model += 50*x1 + 40*x2, "Total_Profit"
+
+# Constraints
+model += 2*x1 + x2 <= 100, "Machine_M1"
+model += x1 + 2*x2 <= 80, "Machine_M2"
+model += x1 + x2 <= 60, "Machine_M3"
+
+# Solve
+model.solve()
+
+# Results
+print("=== PRODUCT MIX OPTIMIZATION ===")
+print(f"Status: {pulp.LpStatus[model.status]}")
+print(f"Optimal Profit: ${pulp.value(model.objective):.2f}")
+print(f"Product A: {x1.varValue} units")
+print(f"Product B: {x2.varValue} units")
+print(f"Machine M1 usage: {2*x1.varValue + x2.varValue}/100 hours")
+print(f"Machine M2 usage: {x1.varValue + 2*x2.varValue}/80 hours")
+print(f"Machine M3 usage: {x1.varValue + x2.varValue}/60 hours")
+```
+
+## Problem 2: Diet Problem
+A nutritionist needs to design a minimum-cost diet that meets daily nutritional requirements. Two foods are available with different nutrient contents and costs. Determine the optimal food quantities.
+
+| Nutrient | Food 1 (units/kg) | Food 2 (units/kg) | Min Daily Requirement |
+|:---------|:-----------------:|:-----------------:|:---------------------:|
+| Protein  | 2                 | 1                 | 8 units               |
+| Carbs    | 1                 | 2                 | 10 units              |
+| Fat      | 1                 | 1                 | 6 units               |
+| **Cost** | **$3** | **$2** | -                     |
+
+### Mathematical Formulation
+
+> *Decision Variables:*
+
+- x_1 : kg of Food 1 to include in daily diet
+- x_2 : kg of Food 2 to include in daily diet
+> ### *Objective Function:*
+
+Minimize the total daily cost:
+
+\text{Minimize } Z = 3x_1 + 2x_2
+
+> ### *Constraints:*
+
+*Protein Requirement:*
+
+2x_1 + x_2 \geq 8
+
+*Carbohydrates Requirement:*
+
+x_1 + 2x_2 \geq 10
+
+*Fat Requirement:*
+
+x_1 + x_2 \geq 6
+
+*Non-negativity Constraints:*
+
+x_1 \geq 0, \quad x_2 \geq 0
+
+### Complete Linear Programming Model:
+
+\begin{aligned}
+\text{Minimize } & Z = 3x_1 + 2x_2 \\
+\text{Subject to } & 2x_1 + x_2 \geq 8 \\
+& x_1 + 2x_2 \geq 10 \\
+& x_1 + x_2 \geq 6 \\
+& x_1 \geq 0 \\
+& x_2 \geq 0
+\end{aligned}
+
+> Python Implementation:
+```{python}
+import pulp
+
+# Create the optimization problem
+model = pulp.LpProblem("Diet_Problem", pulp.LpMinimize)
+
+# Define decision variables
+x1 = pulp.LpVariable('Food_1', lowBound=0, cat='Continuous')
+x2 = pulp.LpVariable('Food_2', lowBound=0, cat='Continuous')
+
+# Define objective function (minimize cost)
+model += 3*x1 + 2*x2, "Total_Cost"
+
+# Add nutritional constraints
+model += 2*x1 + x2 >= 8, "Protein_Requirement"
+model += x1 + 2*x2 >= 10, "Carbohydrates_Requirement"
+model += x1 + x2 >= 6, "Fat_Requirement"
+
+# Solve the problem
+model.solve()
+
+# Display results
+print("=== DIET PROBLEM OPTIMIZATION ===")
+print(f"Solution Status: {pulp.LpStatus[model.status]}")
+print(f"Minimum Daily Cost: ${pulp.value(model.objective):.2f}")
+print(f"Optimal Food Quantities:")
+print(f"  Food 1: {x1.varValue:.2f} kg")
+print(f"  Food 2: {x2.varValue:.2f} kg")
+
+# Verify nutritional intake
+print(f"\nNutritional Analysis:")
+print(f"Protein Intake: {2*x1.varValue + x2.varValue:.1f} units (Minimum: 8 units)")
+print(f"Carbohydrates Intake: {x1.varValue + 2*x2.varValue:.1f} units (Minimum: 10 units)")
+print(f"Fat Intake: {x1.varValue + x2.varValue:.1f} units (Minimum: 6 units)")
+
+# Cost breakdown
+print(f"\nCost Breakdown:")
+print(f"Food 1 Cost: ${3*x1.varValue:.2f}")
+print(f"Food 2 Cost: ${2*x2.varValue:.2f}")
+print(f"Total Cost: ${pulp.value(model.objective):.2f}")
+```
+
+
