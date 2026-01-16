@@ -1,0 +1,192 @@
+## Python Implementation of Nonlinear Solvers
+### Theoretical Foundation
+#### Python Optimization Ecosystem
+- scipy.optimize: Comprehensive optimization toolkit
+- minimize() function: Unified interface for multiple algorithms
+- Algorithm choices: SLSQP, trust-constr, COBYLA for constrained problems
+
+## Sample Problem
+Problem Statement: Implement Golden Section search in Python for f(x)=(x−4)^2+3 on [0, 10].
+```{python}
+import math
+
+def golden_section_search(f, a, b, tol=1e-6, max_iter=100):
+    phi = (1 + math.sqrt(5)) / 2
+    for i in range(max_iter):
+        x1 = b - (b - a) / phi
+        x2 = a + (b - a) / phi
+        
+        if f(x1) > f(x2):
+            a = x1
+        else:
+            b = x2
+            
+        if abs(b - a) < tol:
+            return (a + b) / 2
+    return (a + b) / 2
+
+# Test the function
+def objective(x):
+    return (x - 4)**2 + 3
+
+result = golden_section_search(objective, 0, 10)
+print(f"Optimal x: {result:.4f}") 
+```
+
+## Solution of constrained NLPP
+To solve NLPP using KKT method, we will use solve() function from the sympy library. Key functions required for solution will be imported
+
+``` {python}
+from sympy import symbols, diff, solve
+```
+
+*Example 1*: Minimize f(x, y) = x^2 + y^2 subject to x + y \ge 4 (Standard form: 4 - x - y \le 0 ).
+SymPy does not inherently “solve” inequality constraints in the same way a numerical solver (like SciPy) does. Instead, you must manually transform the inequality into an equation using the Complementary Slackness condition from the KKT framework.Here is the logic: An inequality constraint g(x) \le 0 is handled by introducing a Lagrange multiplier \lambda and adding the equation \lambda \cdot g(x) = 0 to your system.
+
+The 3-Step “Filter” WorkflowSince SymPy’s solve function returns all mathematical solutions (stationary points), you must add a “Filter” step to check the inequalities manually. - Formulate: Convert inequalities to KKT equations (Stationarity + Complementary Slackness). - Solve: Use solve() to find all candidate points. - Filter: Discard solutions that violate Primal Feasibility ( g(x) \le 0) or Dual Feasibility ( \lambda \ge 0 ).
+
+*Python code:*
+```{python}
+from sympy import symbols, diff, solve
+
+# 1. Define Variables
+x, y = symbols('x y', real=True)
+lam = symbols('lambda', real=True) # Lagrange Multiplier
+
+# 2. Define Functions
+f = x**2 + y**2           # Objective
+g = 4 - x - y             # Inequality constraint (g <= 0)
+
+# 3. Formulate Lagrangian
+# L = f + lambda * g
+L = f + lam * g
+
+# 4. Generate KKT Equations
+# A. Stationarity: Gradient of L must be zero
+eq1 = diff(L, x)
+eq2 = diff(L, y)
+
+# B. Complementary Slackness: lambda * constraint = 0
+eq3 = lam * g
+
+# 5. Solve the System of Equations
+# We ask SymPy to find values for x, y, and lambda that satisfy these 3 equalities
+solutions = solve([eq1, eq2, eq3], (x, y, lam), dict=True)
+
+print(f"Candidate Solutions found: {len(solutions)}")
+
+# 6. Filter Solutions (The Crucial Step for Inequalities)
+print("\n--- Validation Step ---")
+valid_solutions = []
+
+for sol in solutions:
+    x_val = sol[x]
+    y_val = sol[y]
+    lam_val = sol[lam]
+    
+    # Check Primal Feasibility: g(x) <= 0
+    # (Using a small tolerance for floating point comparisons if needed)
+    primal_check = (4 - x_val - y_val) <= 0
+    
+    # Check Dual Feasibility: lambda >= 0
+    dual_check = lam_val >= 0
+    
+    print(f"Testing Point ({x_val}, {y_val}) with lambda={lam_val}:")
+    print(f"  Constraint g <= 0? {primal_check}")
+    print(f"  Dual lambda >= 0? {dual_check}")
+    
+    if primal_check and dual_check:
+        print(" VALID Optimal Solution")
+        valid_solutions.append(sol)
+    else:
+        print(" INVALID (Violates KKT conditions)")
+
+# Output Final Result
+if valid_solutions:
+    opt = valid_solutions[0]
+    print(f"\nOptimal Solution: x={opt[x]}, y={opt[y]}, cost={opt[x]**2 + opt[y]**2}")
+```
+
+> Example 2: Solve f(x_1,x_2)=-x_1^2-x_2^2 ; -x_1-x_2\le -1 ; -2x_1+2x_2\le 1 ; x_1,x_2\ge 0 .
+
+```{python}
+import sympy as sp
+
+# 1. Define Variables
+x1, x2 = sp.symbols('x1 x2', real=True)
+lam1, lam2 = sp.symbols('lambda1 lambda2', real=True)
+
+# 2. Define Objective (Maximization)
+f = -x1**2 - x2**2
+
+# 3. Define Constraints in Standard Form (g(x) <= 0)
+# Original: -x1 - x2 >= -1  -> x1 + x2 <= 1 -> x1 + x2 - 1 <= 0
+g1 = x1 + x2 - 1
+
+# Original: -2x1 + 2x2 <= 1 -> -2x1 + 2x2 - 1 <= 0
+g2 = -2*x1 + 2*x2 - 1
+
+# 4. Formulate Lagrangian for Maximization (L = f - lambda*g)
+L = f - lam1 * g1 - lam2 * g2
+
+# 5. KKT Equations
+# A. Stationarity (Gradient of L w.r.t x must be 0)
+stat_x1 = sp.diff(L, x1)
+stat_x2 = sp.diff(L, x2)
+
+# B. Complementary Slackness (lambda * g = 0)
+slack_1 = lam1 * g1
+slack_2 = lam2 * g2
+
+# 6. Solve the System
+print("Solving KKT system...")
+# We assume non-negativity of x (x >= 0) is a boundary check rather than an explicit Lagrangian term 
+# to keep the symbolic solver efficient for this demo.
+solutions = sp.solve([stat_x1, stat_x2, slack_1, slack_2], (x1, x2, lam1, lam2), dict=True)
+
+# 7. Validation & Filtering
+print(f"\nFound {len(solutions)} candidate points. Filtering for optimality...")
+print("-" * 75)
+print(f"{'Point (x1, x2)':<20} | {'Multipliers':<20} | {'Objective':<10} | {'Status'}")
+print("-" * 75)
+
+best_f = -float('inf')
+best_sol = None
+
+for sol in solutions:
+    # Extract numerical values
+    x1_v = float(sol[x1])
+    x2_v = float(sol[x2])
+    l1_v = float(sol[lam1])
+    l2_v = float(sol[lam2])
+    
+    status = "Valid"
+    
+    # Check 1: Non-negativity of variables (x >= 0)
+    if x1_v < -1e-7 or x2_v < -1e-7:
+        status = "Invalid (x < 0)"
+        
+    # Check 2: Primal Feasibility (g <= 0)
+    elif (x1_v + x2_v - 1) > 1e-7:
+        status = "Invalid (g1 > 0)"
+    elif (-2*x1_v + 2*x2_v - 1) > 1e-7:
+        status = "Invalid (g2 > 0)"
+        
+    # Check 3: Dual Feasibility (lambda >= 0 for Max problem with L = f - lg)
+    elif l1_v < -1e-7 or l2_v < -1e-7:
+        status = "Invalid (lambda < 0)"
+    
+    # Calculate Objective
+    obj_val = -x1_v**2 - x2_v**2
+    
+    print(f"({x1_v:.4f}, {x2_v:.4f})   | L1={l1_v:.4f}, L2={l2_v:.4f} | {obj_val:.4f}     | {status}")
+    
+    if "Valid" in status and obj_val > best_f:
+        best_f = obj_val
+        best_sol = (x1_v, x2_v)
+
+print("-" * 75)
+if best_sol:
+    print(f"\n Optimal Solution: x1 = {best_sol[0]}, x2 = {best_sol[1]}")
+    print(f"   Max Objective Value = {best_f}")
+```

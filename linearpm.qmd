@@ -223,7 +223,7 @@ print(f"Carbohydrates Intake: {x1.varValue + 2*x2.varValue:.1f} units (Minimum: 
 print(f"Fat Intake: {x1.varValue + x2.varValue:.1f} units (Minimum: 6 units)")
 
 # Cost breakdown
-print(f"\nCost Breakdown:")
+print(f"\nCost Breakdown:") 
 print(f"Food 1 Cost: ${3*x1.varValue:.2f}")
 print(f"Food 2 Cost: ${2*x2.varValue:.2f}")
 print(f"Total Cost: ${pulp.value(model.objective):.2f}")
