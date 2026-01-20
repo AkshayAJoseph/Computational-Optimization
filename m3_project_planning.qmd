@@ -222,3 +222,111 @@ pos = nx.spring_layout(G)
 nx.draw(G, pos, with_labels=True, node_size=2000, node_color='skyblue')
 plt.show()
 ```
+### Problem 2: The Bottleneck
+*Scenario*: Software Development. Coding takes longer than Documentation.
+
+*Activity Data:*
+
+| Activity | Description  | Pred | Duration |
+|---------|--------------|------|----------|
+| S       | Start Specs   | -    | 2        |
+| C       | Code Module   | S    | 8        |
+| D       | Write Docs    | S    | 3        |
+| T       | Testing       | C, D | 4        |
+
+*Mathematical Solution*:
+
+*Forward Pass*: 
+1. S: 0 \to 2. 
+2. C: Starts after S(2). 2 + 8 = 10 . 
+3. D: Starts after S(2). 2 + 3 = 5 . 
+4. T: Waits for C(10) & D(5). \max(10, 5) = 10 . 
+. *Project Ends*: Day 14.
+
+*Backward Pass:* 
+1. T: Finish by 14. Start by 14-4=10 . 
+2. C: Must finish by T’s start (10). Start by 10-8=2 . 
+3. D: Must finish by T’s start (10). Start by 10-3=7 . 
+4. S: Successors C(starts 2) & D(starts 7). \min(2, 7) = 2 . Start by 2-2=0 .
+
+*Float Calculation:*
+* Float C: LS(2) - ES(2) = 0  (Critical) 
+* Float D: LS(7) - ES(2) = 5 (Slack)
+
+*Interpretation:* The Documentation team (D) can delay their start by up to 5 days without affecting the launch date. The Coding team (C) has zero wiggle room.
+
+*Critical Path:* 
+
+> Python solution:
+```{python}
+import networkx as nx
+import pandas as pd
+
+# 1. Define the Project Data (Updated for Problem 2)
+tasks = {
+    'S': {'desc': 'Start Specs', 'duration': 2, 'predecessors': []},
+    'C': {'desc': 'Code Module', 'duration': 8, 'predecessors': ['S']},
+    'D': {'desc': 'Write Docs',  'duration': 3, 'predecessors': ['S']},
+    'T': {'desc': 'Testing',     'duration': 4, 'predecessors': ['C', 'D']}
+}
+
+# 2. Build Graph
+G = nx.DiGraph()
+for task, data in tasks.items():
+    G.add_node(task, duration=data['duration'], desc=data['desc'])
+    for pred in data['predecessors']:
+        G.add_edge(pred, task)
+
+# 3. Forward Pass (Early Start/Finish)
+early_start = {}
+early_finish = {}
+for task in nx.topological_sort(G):
+    # ES = Max of predecessor EF
+    predecessors = list(G.predecessors(task))
+    es = max((early_finish[p] for p in predecessors), default=0)
+    
+    duration = G.nodes[task]['duration']
+    early_start[task] = es
+    early_finish[task] = es + duration
+
+project_duration = max(early_finish.values())
+
+# 4. Backward Pass (Late Start/Finish)
+late_start = {}
+late_finish = {}
+for task in reversed(list(nx.topological_sort(G))):
+    successors = list(G.successors(task))
+    # LF = Min of successor LS
+    lf = min((late_start[s] for s in successors), default=project_duration)
+    
+    duration = G.nodes[task]['duration']
+    late_start[task] = lf - duration
+    late_finish[task] = lf
+
+# 5. Calculate Slack & Critical Path
+slack = {}
+critical_path = []
+for task in tasks:
+    s = late_start[task] - early_start[task]
+    slack[task] = s
+    if s == 0:
+        critical_path.append(task)
+
+# 6. Display Results
+df = pd.DataFrame({
+    'Description': [tasks[t]['desc'] for t in tasks],
+    'Duration': [tasks[t]['duration'] for t in tasks],
+    'ES': [early_start[t] for t in tasks],
+    'EF': [early_finish[t] for t in tasks],
+    'LS': [late_start[t] for t in tasks],
+    'LF': [late_finish[t] for t in tasks],
+    'Slack': [slack[t] for t in tasks],
+    'Critical': ['Yes' if s == 0 else 'No' for s in slack.values()]
+}, index=tasks.keys())
+
+print("--- CPM Schedule Analysis: The Bottleneck ---")
+print(df[['Description', 'Duration', 'ES', 'EF', 'Slack', 'Critical']])
+print("-" * 60)
+print(f"Total Project Duration: {project_duration} Days")
+print(f"Critical Path: {' -> '.join(critical_path)}")
+```
