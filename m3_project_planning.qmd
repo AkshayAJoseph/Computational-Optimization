@@ -1,0 +1,224 @@
+## Critical Path Method (CPM)
+### The “Bottleneck” Concept
+The Critical Path Method (CPM) is one of the most powerful tools in an engineer’s toolkit. Here is the intuition: A project is only as fast as its slowest sequence of dependent tasks.
+
+We call this longest sequence the Critical Path. If any activity on this path is delayed by one day, the entire project is delayed by one day.
+
+> ### What is Critical Path Method?
+CPM is an algorithm for scheduling project activities that:
+
+- Identifies critical activities that cannot be delayed without delaying the project
+- Calculates the minimum project duration
+- Determines float/slack time for non-critical activities
+### CPM Terminology
+1. Earliest Start Time (ES): Earliest time an activity can begin
+2. Earliest Finish Time (EF): ES + Activity Duration
+3. Latest Start Time (LS): Latest time an activity can begin without delaying project
+4. Latest Finish Time (LF): LS + Activity Duration
+5. Float/Slack: LF - EF or LS - ES (flexibility in scheduling)
+6. Critical Path: Sequence of activities with zero float
+
+> ### CPM Algorithm Steps
+*Forward Pass (Calculate ES, EF):*
+
+1. Start with initial activity: ES = 0, EF = Duration
+2. For each subsequent activity: ES = max(EF of all predecessors)
+3. EF = ES + Duration
+4. Project duration = max(EF of all terminal activities)
+
+*Backward Pass (Calculate LS, LF):*
+
+1. For terminal activities: LF = Project duration, LS = LF - Duration
+2. For each preceding activity: LF = min(LS of all successors)
+3. LS = LF - Duration
+
+*Identify Critical Path:* Activities where ES = LS (or EF = LF) have zero float and are on critical path.
+
+### Mathematical Formulation
+For activity i with duration d_i :
+\begin{aligned}
+ES_i &= \max_{j \in P(i)} EF_j \\
+EF_i &= ES_i + d_i \\
+LF_i &= \min_{j \in S(i)} LS_j \\
+LS_i &= LF_i - d_i \\
+\text{Float}_i &= LS_i - ES_i = LF_i - EF_i
+\end{aligned}
+
+Where P(i) are predecessors and S(i) are successors.
+
+## Practice Problems: Critical Path Method (CPM)
+### The Systematic Approach: The “Pass” Method
+To solve CPM problems without getting confused, we treat the project network like a circuit. We don’t guess; we calculate.
+
+*The 4-Step Algorithm:*
+
+1. Forward Pass (The Earliest Possible):
+
+- Start at Time 0.
+- Move Start \to End.
+- Rule: ES = \max(EF \text{ of predecessors}) .
+- Logic: You can’t start until all your prerequisites are done.
+2. Backward Pass (The Latest Permissible):
+
+- Start at the Project End Time.
+- Move End \to Start .
+- Rule: LF = \min(LS \text{ of successors}) .
+- Logic: You must finish early enough so everyone waiting for you can start on time.
+3. Calculate *Float (The Buffer):*
+
+- \text{Float} = LS - ES (or LF - EF ).
+4. Identify Critical Path:
+
+- Any activity with Zero Float is Critical.
+### Problem 1: The “Hello World” of CPM
+*Scenario*: A simple linear workflow with one parallel branch.
+
+*Activity Data:*
+
+| Activity | Predecessors | Duration (Days) |
+|---------|--------------|-----------------|
+| A       | -            | 3               |
+| B       | A            | 4               |
+| C       | A            | 2               |
+| D       | B, C         | 5               |
+
+*Mathematical Solution:*
+
+*Step 1: Forward Pass (Find ES, EF)*
+
+- A: Start at 0. Duration 3. \to EF = 3.
+
+- B: Predecessor A (ends at 3). Start at 3. Duration 4. \to EF = 7.
+
+- C: Predecessor A (ends at 3). Start at 3. Duration 2. \to EF = 5.
+
+- D: Predecessors B (ends 7) and C (ends 5).
+
+    - Rule: We must wait for the slowest one. \max(7, 5) = 7.
+    - Start at 7. Duration 5. \to EF = 12 .
+*Project Duration:* 12 Days.
+
+*Step 2: Backward Pass (Find LF, LS)*
+
+- D: End at 12. Duration 5. \to LS = 12 - 5 = 7 .
+
+- B: Successor D (starts at 7). Must finish by 7. Duration 4. \to LS = 7 - 4 = 3.
+
+- C: Successor D (starts at 7). Must finish by 7. Duration 2. \to LS = 7 - 2 = 5.
+
+- A: Successors B (starts 3) and C (starts 5).
+
+    - Rule: Must be done in time for the earliest requirement. \min(3, 5) = 3.
+    - Must finish by 3. Duration 3. \to LS = 0.
+*Step 3 & 4: Float & Critical Path*
+| Activity | Duration | ES | EF | LS | LF | Float (LS-ES) | Critical? |
+|---------|----------|----|----|----|----|---------------|-----------|
+| A       | 3        | 0  | 3  | 0  | 3  | 0             | Yes       |
+| B       | 4        | 3  | 7  | 3  | 7  | 0             | Yes       |
+| C       | 2        | 3  | 5  | 5  | 7  | 2             | No        |
+| D       | 5        | 7  | 12 | 7  | 12 | 0             | Yes       |
+*Critical Path:* A \to B \to D
+
+> Python solution
+```{python}
+import networkx as nx
+import pandas as pd
+
+# 1. Define the Project Data
+tasks = {
+    'A': {'duration': 3, 'predecessors': []},
+    'B': {'duration': 4, 'predecessors': ['A']},
+    'C': {'duration': 2, 'predecessors': ['A']},
+    'D': {'duration': 5, 'predecessors': ['B', 'C']}
+}
+
+# 2. Build the Network Graph
+G = nx.DiGraph()
+for task, data in tasks.items():
+    G.add_node(task, duration=data['duration'])
+    for pred in data['predecessors']:
+        G.add_edge(pred, task)
+
+# ---------------------------------------------------------
+# 3. Forward Pass (Calculate Early Start & Early Finish)
+# ---------------------------------------------------------
+# We iterate in topological order to ensure predecessors are processed first
+early_start = {}
+early_finish = {}
+
+for task in nx.topological_sort(G):
+    # ES is max of predecessor's EF. If no predecessors, ES = 0
+    predecessors = list(G.predecessors(task))
+    if not predecessors:
+        es = 0
+    else:
+        es = max(early_finish[p] for p in predecessors)
+    
+    duration = G.nodes[task]['duration']
+    ef = es + duration
+    
+    early_start[task] = es
+    early_finish[task] = ef
+
+project_duration = max(early_finish.values())
+
+# ---------------------------------------------------------
+# 4. Backward Pass (Calculate Late Start & Late Finish)
+# ---------------------------------------------------------
+# We iterate in reverse topological order
+late_start = {}
+late_finish = {}
+
+for task in reversed(list(nx.topological_sort(G))):
+    successors = list(G.successors(task))
+    
+    # LF is min of successor's LS. If no successors, LF = Project Duration
+    if not successors:
+        lf = project_duration
+    else:
+        lf = min(late_start[s] for s in successors)
+        
+    duration = G.nodes[task]['duration']
+    ls = lf - duration
+    
+    late_finish[task] = lf
+    late_start[task] = ls
+
+# ---------------------------------------------------------
+# 5. Calculate Slack & Identify Critical Path
+# ---------------------------------------------------------
+slack = {}
+critical_path = []
+
+for task in tasks:
+    s = late_start[task] - early_start[task]
+    slack[task] = s
+    if s == 0:
+        critical_path.append(task)
+
+# ---------------------------------------------------------
+# 6. Display Results
+# ---------------------------------------------------------
+# Create a DataFrame for a clean CPM Table
+df = pd.DataFrame({
+    'Duration': [tasks[t]['duration'] for t in tasks],
+    'ES (Early Start)': [early_start[t] for t in tasks],
+    'EF (Early Finish)': [early_finish[t] for t in tasks],
+    'LS (Late Start)': [late_start[t] for t in tasks],
+    'LF (Late Finish)': [late_finish[t] for t in tasks],
+    'Slack': [slack[t] for t in tasks],
+    'Critical?': ['Yes' if s == 0 else 'No' for s in slack.values()]
+}, index=tasks.keys())
+
+print("--- CPM Schedule Table ---")
+print(df)
+print("-" * 30)
+print(f"Total Project Duration: {project_duration} Days")
+print(f"Critical Path: {' -> '.join(critical_path)}")
+
+# Visualize the Network
+import matplotlib.pyplot as plt
+pos = nx.spring_layout(G)
+nx.draw(G, pos, with_labels=True, node_size=2000, node_color='skyblue')
+plt.show()
+```
