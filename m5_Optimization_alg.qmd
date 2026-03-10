@@ -1,63 +1,135 @@
-> Problem statement: Compare the convergence of solutions of f(x)=x^2-4x+4 using the Adagrad, RMSProp and adam optimizers starting from x_0=0 with learning rate \eta=0.1. Chose 4 iterations and show the results in a table. (\gamma=0.9, \beta_1=0.9,\beta_2=0.99 and \epsilon=10^{-8} ).
+> Problem statement: Compare the convergence of solutions of  
+> \(f(x)=x^2-4x+4\) using the AdaGrad, RMSProp and Adam optimizers starting from  
+> \(x_0 = 0\) with learning rate \(\eta = 0.1\).  
+> Choose 4 iterations and show the results in a table.  
+> (\(\gamma=0.9\), \(\beta_1=0.9\), \(\beta_2=0.99\), \(\epsilon=10^{-8}\))
+
 ```{python}
 import math
+import csv
+import pandas as pd
 
 def f_prime(x):
-    """Derivative of the objective function f(x) = x^2 - 4x + 4"""
-    return 2 * x - 4
+    return 2*x - 4
 
-# Hyperparameters
-x_0 = 0.0
-eta = 0.1
-epsilon = 1e-8
-iterations = 4
 
-# AdaGrad Initialization
-x_ada = x_0
-G = 0.0
+def run_optimizers(x0=0.0, eta=0.1, epsilon=1e-8, iterations=4):
 
-# RMSprop Initialization
-x_rms = x_0
-gamma = 0.9
-E_g2 = 0.0
+    x_ada = x0
+    x_rms = x0
+    x_adam = x0
 
-# Adam Initialization
-x_adam = x_0
-beta1 = 0.9
-beta2 = 0.99
-m = 0.0
-v = 0.0
+    G = 0.0
+    gamma = 0.9
+    Eg2 = 0.0
 
-# Header for the table
-print(f"{'Iteration (t)':<15} | {'AdaGrad (x_t)':<15} | {'RMSprop (x_t)':<15} | {'Adam (x_t)':<15}")
-print("-" * 68)
-print(f"{0:<15} | {x_0:<15.4f} | {x_0:<15.4f} | {x_0:<15.4f}")
+    beta1 = 0.9
+    beta2 = 0.99
+    m = 0.0
+    v = 0.0
 
-# Iteration Loop
-for t in range(1, iterations + 1):
-    
-    # ------------------ AdaGrad Update ------------------
-    g_ada = f_prime(x_ada)
-    G += g_ada**2
-    x_ada = x_ada - (eta / (math.sqrt(G) + epsilon)) * g_ada
-    
-    # ------------------ RMSprop Update ------------------
-    g_rms = f_prime(x_rms)
-    E_g2 = gamma * E_g2 + (1 - gamma) * g_rms**2
-    x_rms = x_rms - (eta / (math.sqrt(E_g2) + epsilon)) * g_rms
-    
-    # ------------------ Adam Update ---------------------
-    g_adam = f_prime(x_adam)
-    m = beta1 * m + (1 - beta1) * g_adam
-    v = beta2 * v + (1 - beta2) * g_adam**2
-    
-    # Bias corrections for Adam
-    m_hat = m / (1 - beta1**t)
-    v_hat = v / (1 - beta2**t)
-    
-    x_adam = x_adam - (eta / (math.sqrt(v_hat) + epsilon)) * m_hat
-    
-    # Print row
-    print(f"{t:<15} | {x_ada:<15.4f} | {x_rms:<15.4f} | {x_adam:<15.4f}")
-    
+    results = []
+    results.append([0, x0, x0, x0])
+
+    for t in range(1, iterations+1):
+
+        # AdaGrad
+        g_ada = f_prime(x_ada)
+        G += g_ada**2
+        x_ada = x_ada - (eta/(math.sqrt(G)+epsilon))*g_ada
+
+        # RMSprop
+        g_rms = f_prime(x_rms)
+        Eg2 = gamma*Eg2 + (1-gamma)*g_rms**2
+        x_rms = x_rms - (eta/(math.sqrt(Eg2)+epsilon))*g_rms
+
+        # Adam
+        g_adam = f_prime(x_adam)
+        m = beta1*m + (1-beta1)*g_adam
+        v = beta2*v + (1-beta2)*g_adam**2
+
+        m_hat = m/(1-beta1**t)
+        v_hat = v/(1-beta2**t)
+
+        x_adam = x_adam - (eta/(math.sqrt(v_hat)+epsilon))*m_hat
+
+        results.append([t, x_ada, x_rms, x_adam])
+
+    with open("optimizer_results.csv","w",newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Iteration","AdaGrad","RMSprop","Adam"])
+        writer.writerows(results)
+
+    return results
+
+
+data = run_optimizers()
+
+df = pd.DataFrame(data, columns=["Iteration","AdaGrad","RMSprop","Adam"])
+
+# round values for cleaner report table
+df = df.round(4)
+
+df
+```
+
+## Convergence Comparison
+```{python}
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(8,5))
+
+plt.plot(df["Iteration"], df["AdaGrad"], marker='o', linewidth=2, label="AdaGrad")
+plt.plot(df["Iteration"], df["RMSprop"], marker='s', linewidth=2, label="RMSprop")
+plt.plot(df["Iteration"], df["Adam"], marker='^', linewidth=2, label="Adam")
+
+plt.xlabel("Iteration")
+plt.ylabel("x value")
+plt.title("Convergence Comparison of Optimizers")
+
+plt.grid(True, linestyle='--', alpha=0.6)
+plt.legend()
+
+plt.show()
+```
+
+## Optimizer Trajectories on the Function Curve
+
+```{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+def f(x):
+    return x**2 - 4*x + 4
+
+# Generate smooth function curve
+x_vals = np.linspace(-1, 3, 200)
+y_vals = f(x_vals)
+
+plt.figure(figsize=(8,5))
+
+# Plot function curve
+plt.plot(x_vals, y_vals, color='black', label="f(x) = x² - 4x + 4")
+
+# Plot optimizer paths
+plt.scatter(df["AdaGrad"], f(df["AdaGrad"]), color='blue', label="AdaGrad path")
+plt.plot(df["AdaGrad"], f(df["AdaGrad"]), color='blue', linestyle='--')
+
+plt.scatter(df["RMSprop"], f(df["RMSprop"]), color='green', label="RMSprop path")
+plt.plot(df["RMSprop"], f(df["RMSprop"]), color='green', linestyle='--')
+
+plt.scatter(df["Adam"], f(df["Adam"]), color='red', label="Adam path")
+plt.plot(df["Adam"], f(df["Adam"]), color='red', linestyle='--')
+
+# Mark minimum
+plt.scatter(2, 0, color='gold', s=120, label="Minimum (x=2)")
+
+plt.xlabel("x")
+plt.ylabel("f(x)")
+plt.title("Optimizer Trajectories on the Function Curve")
+
+plt.grid(True)
+plt.legend()
+
+plt.show()
 ```
