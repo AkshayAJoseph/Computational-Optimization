@@ -1,0 +1,63 @@
+> Problem statement: Compare the convergence of solutions of f(x)=x^2-4x+4 using the Adagrad, RMSProp and adam optimizers starting from x_0=0 with learning rate \eta=0.1. Chose 4 iterations and show the results in a table. (\gamma=0.9, \beta_1=0.9,\beta_2=0.99 and \epsilon=10^{-8} ).
+```{python}
+import math
+
+def f_prime(x):
+    """Derivative of the objective function f(x) = x^2 - 4x + 4"""
+    return 2 * x - 4
+
+# Hyperparameters
+x_0 = 0.0
+eta = 0.1
+epsilon = 1e-8
+iterations = 4
+
+# AdaGrad Initialization
+x_ada = x_0
+G = 0.0
+
+# RMSprop Initialization
+x_rms = x_0
+gamma = 0.9
+E_g2 = 0.0
+
+# Adam Initialization
+x_adam = x_0
+beta1 = 0.9
+beta2 = 0.99
+m = 0.0
+v = 0.0
+
+# Header for the table
+print(f"{'Iteration (t)':<15} | {'AdaGrad (x_t)':<15} | {'RMSprop (x_t)':<15} | {'Adam (x_t)':<15}")
+print("-" * 68)
+print(f"{0:<15} | {x_0:<15.4f} | {x_0:<15.4f} | {x_0:<15.4f}")
+
+# Iteration Loop
+for t in range(1, iterations + 1):
+    
+    # ------------------ AdaGrad Update ------------------
+    g_ada = f_prime(x_ada)
+    G += g_ada**2
+    x_ada = x_ada - (eta / (math.sqrt(G) + epsilon)) * g_ada
+    
+    # ------------------ RMSprop Update ------------------
+    g_rms = f_prime(x_rms)
+    E_g2 = gamma * E_g2 + (1 - gamma) * g_rms**2
+    x_rms = x_rms - (eta / (math.sqrt(E_g2) + epsilon)) * g_rms
+    
+    # ------------------ Adam Update ---------------------
+    g_adam = f_prime(x_adam)
+    m = beta1 * m + (1 - beta1) * g_adam
+    v = beta2 * v + (1 - beta2) * g_adam**2
+    
+    # Bias corrections for Adam
+    m_hat = m / (1 - beta1**t)
+    v_hat = v / (1 - beta2**t)
+    
+    x_adam = x_adam - (eta / (math.sqrt(v_hat) + epsilon)) * m_hat
+    
+    # Print row
+    print(f"{t:<15} | {x_ada:<15.4f} | {x_rms:<15.4f} | {x_adam:<15.4f}")
+    
+```
